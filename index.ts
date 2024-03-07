@@ -56,16 +56,27 @@ async function downloadFile(url: string, fileName: string, index: number) {
     return;
   }
   const fullFileName = fileName.endsWith('.mp4') ? fileName : `${fileName}.mp4`;
-  console.log(`Downloading ${fullFileName}`, {index});
-
   const destination = path.resolve('./downloads', fullFileName);
-  const fileStream = createWriteStream(destination, { flags: 'wx' });
-  if (res.body == null) {
-    throw new Error('Response body is empty');
-  }
-  await finished(Readable.fromWeb(res.body).pipe(fileStream));
-  console.log(`Converting ${fullFileName}`, {index});
   const outputFileName = `${index}.webm`;
+  if (!existsSync(destination)) {
+    console.log(`Downloading ${fullFileName}`, {index});
+
+    const fileStream = createWriteStream(destination, { flags: 'wx' });
+    if (res.body == null) {
+      throw new Error('Response body is empty');
+    }
+    await finished(Readable.fromWeb(res.body).pipe(fileStream));
+  } else {
+    const remoteRes = await fetch('https://mp4-wiki-files.s3.il-central-1.amazonaws.com/' + outputFileName);
+    if (remoteRes.status === 404) {
+      console.error(url + ' not uploaded', {index});
+      logs.push(url + ' not uploaded');
+    } else {
+      console.log(url + ' already uploaded', {index});
+      return;
+    }
+  }
+  console.log(`Converting ${fullFileName}`, {index});
   await convert(`./downloads/${fullFileName}`, `./downloads/${outputFileName}`);
   console.log(`Converted ${fullFileName}`, {index});
   const file = await fs.readFile('./downloads/' + outputFileName);
